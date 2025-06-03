@@ -29,6 +29,7 @@ public class FeedReaderMain {
                 .appName("FeedReaderSpark")
                 .master("local[*]")
                 .getOrCreate();
+        spark.sparkContext().setLogLevel("WARN");
         SubscriptionParser sp = new SubscriptionParser();
         Subscription s = sp.jsonParser("config/subscriptions.json");
         if (s == null) {
@@ -61,7 +62,18 @@ public class FeedReaderMain {
                 }
             }
             return results.iterator();
+
         }, Encoders.javaSerialization(Feed.class));
+        List<Feed> feeds = feedsDS.collectAsList();
+        if (args.length == 0) {
+            System.out.println("printing without -ne");
+            for (Feed feedaux : feeds) {
+                feedaux.prettyPrint();
+                System.out.println("------------------------");
+                System.out.println("|feed :" + feedaux.getSiteName() + "|");
+                System.out.println("------------------------");
+            }
+        }
 
         // 3. Extraer todos los artículos de todos los feeds
         Dataset<Article> articlesDS = feedsDS.flatMap((FlatMapFunction<Feed, Article>) feed -> feed.getArticleList().iterator(),
