@@ -43,7 +43,12 @@ public class FeedReaderMain {
 
         for (SingleSubscription singSub : subscriptionList) {
             for (int i = 0; i < singSub.getUlrParamsSize(); i++) {
-                urls.add(singSub.getFeedToRequest(i));
+                if (singSub.getFeedToRequest(i) == null) {
+                    System.out.print("error catching feed:" + i);
+                } else {
+                    urls.add(singSub.getFeedToRequest(i));
+                }
+
             }
         }
         Dataset<String> urlsDS = spark.createDataset(urls, Encoders.STRING());
@@ -68,77 +73,46 @@ public class FeedReaderMain {
         if (args.length == 0) {
             System.out.println("printing without -ne");
             for (Feed feedaux : feeds) {
-                feedaux.prettyPrint();
                 System.out.println("------------------------");
                 System.out.println("|feed :" + feedaux.getSiteName() + "|");
                 System.out.println("------------------------");
+                feedaux.prettyPrint();
             }
+
+        } else if (args.length == 1) {
+            if (!args[0].equals("-ne")) {
+                printHelp();
+                return;
+            }
+            System.out.println("printing with -ne");
+
+            Dataset<Article> articlesDS = feedsDS.flatMap((FlatMapFunction<Feed, Article>) feed -> feed.getArticleList().iterator(),
+                    Encoders.javaSerialization(Article.class)
+            );
+
+            Dataset<Article> processedArticlesDS = articlesDS.map(
+                    (MapFunction<Article, Article>) article -> {
+                        namedEntity.heuristic.QuickHeuristic qh = new namedEntity.heuristic.QuickHeuristic();
+                        article.computeNamedEntities(qh);
+                        return article;
+                    }, Encoders.javaSerialization(Article.class)
+            );
+
+            List<Article> listAricles = processedArticlesDS.collectAsList();
+            for (Article article : listAricles) {
+                article.prettyPrint();
+                System.out.println("Named Entities:");
+                for (namedEntity.NamedEntity ne : article.getList()) {
+                    System.out.println(" - " + ne.getName() + " (" + ne.getCategory() + ") - Frequency: " + ne.getFrequency());
+                }
+                System.out.println("**********************************************************************************************");
+
+            }
+
+        } else {
+            printHelp();
         }
-
-        // 3. Extraer todos los artículos de todos los feeds
-        Dataset<Article> articlesDS = feedsDS.flatMap((FlatMapFunction<Feed, Article>) feed -> feed.getArticleList().iterator(),
-                Encoders.javaSerialization(Article.class)
-        );
-
-        // 4. Procesar entidades nombradas en paralelo
-        Dataset<Article> processedArticlesDS = articlesDS.map((MapFunction<Article, Article>) article -> {
-            namedEntity.heuristic.QuickHeuristic qh = new namedEntity.heuristic.QuickHeuristic();
-            article.computeNamedEntities(qh);
-            return article;
-        }, Encoders.javaSerialization(Article.class));
-
-        // 5. Recoger los resultados si los necesitas en memoria
-        List<Article> processedArticles = processedArticlesDS.collectAsList();
-
-        // Aquí puedes imprimir, guardar o seguir procesando los artículos
-        // processedArticles.forEach(System.out::println);
-        // for (SingleSubscription singSub : subscriptionList) {
-        //     // Llamar al httpRequester para obtener el feed del servidor
-        //     httpRequester http = new httpRequester();
-        //     if (!singSub.getUrlType().equals("rss")) {
-        //         // si entramos es porque NO es un rss
-        //         System.out.println("Unable to parse feeds different from RSS format.");
-        //         System.out.println("Attempted to parse feed type: " + singSub.getUrlType());
-        //         continue;
-        //     }
-        //     for (int i = 0; i < singSub.getUlrParamsSize(); i++) {
-        //         String urlFeed = singSub.getFeedToRequest(i);
-        //         String feedContent = http.getFeedRss(urlFeed);
-        //         RssParser rssParser = new RssParser();
-        //         feed = rssParser.parser(feedContent);
-        //         if (feed != null) {
-        //             feeds.add(feed);
-        //         }
-        //     }
-        // }
-        // if (args.length == 0) {
-        //     System.out.println("printing without -ne");
-        //     for (Feed feedaux : feeds) {
-        //         feedaux.prettyPrint();
-        //         System.out.println("------------------------");
-        //         System.out.println("|feed :" + feedaux.getSiteName() + "|");
-        //         System.out.println("------------------------");
-        //     }
-        // } else if (args.length == 1) {
-        //     if (!args[0].equals("-ne")) {
-        //         printHelp();
-        //         return;
-        //     }
-        //     System.out.println("printing with -ne");
-        //     QuickHeuristic qh = new QuickHeuristic();
-        //     for (Feed feedaux : feeds) {
-        //         for (Article a : feedaux.getArticleList()) {
-        //             a.computeNamedEntities(qh);
-        //         }
-        //         feedaux.addAllNamedEntities();
-        //         feedaux.prettyPrintAllNamedEntities();
-        //         System.out.println("------------------------");
-        //         System.out.println("|feed :" + feedaux.getSiteName() + "|");
-        //         System.out.println("------------------------");
-        //     }
-        //} else {
-        //  printHelp();
-        //}
         spark.stop(); // Cerrar la sesión al final
     }
+
 }

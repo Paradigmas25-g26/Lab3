@@ -7,7 +7,8 @@ OUT_DIR=out
 MAIN_CLASS=FeedReaderMain
 LIB_DIR=lib
 SPARK_HOME=../spark-3.5.5-bin-hadoop3
-CLASSPATH=$(OUT_DIR):$(LIB_DIR)/json-20240303.jar:$(SPARK_HOME)/jars/*
+SPARK_JARS=$(shell echo $(SPARK_HOME)/jars/*.jar | tr ' ' ':')
+CLASSPATH=$(OUT_DIR):$(LIB_DIR)/json-20240303.jar:$(SPARK_JARS)
 
 SOURCES=$(shell find $(SRC_DIR) -name "*.java")
 
@@ -18,7 +19,10 @@ build:
 	$(JAVAC) -cp "$(CLASSPATH)" -d $(OUT_DIR) $(SOURCES)
 
 run: build
-	$(JAVA) -cp "$(CLASSPATH)" $(MAIN_CLASS)
+	$(JAVA) -cp "$(CLASSPATH)" $(MAIN_CLASS) > salida.txt 2>&1
+
+run-ne: build
+	$(JAVA) -cp "$(CLASSPATH)" $(MAIN_CLASS) -ne > salida-ne.txt 2>&1
 
 clean:
 	rm -rf $(OUT_DIR)
