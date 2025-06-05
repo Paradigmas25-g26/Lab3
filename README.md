@@ -1,5 +1,5 @@
-# Lab2
-# FeedReader - Laboratorio 2 Paradigmas
+# Lab3
+# Programación Distribuida con Spark - Laboratorio 3 Paradigmas
 
 ## Integrantes
 - Maria Lilen Bena
@@ -10,6 +10,8 @@
 ## Descripción
 
 FeedReader es una aplicación Java que permite leer, procesar y analizar feeds RSS (y está preparada para extenderse a otros formatos como Reddit). El programa descarga los feeds definidos en un archivo de suscripciones, los procesa y muestra los artículos y entidades nombradas encontradas en los textos.
+
+Este proyecto extiende el lector de feeds RSS del Lab 2, adaptándolo al procesamiento distribuido con Apache Spark. Permite escalar la descarga de múltiples feeds y el análisis de sus artículos mediante paralelización.
 
 ---
 
@@ -36,50 +38,42 @@ Esta organización permite un desarrollo ordenado y facilita futuras ampliacione
 
 ---
 
-## Instalación y dependencias
+## Configuración del entorno y ejecución
+Instrucciones para el usuario sobre cómo correr las dos partes del laboratorio con spark. Explicación del resultado que se espera luego de ejecutar cada parte.
+El usuario debe ingresar en el Makefile la ruta al directorio de spark y colocarla en la variable **SPARK_HOME** para su correcta compilación 
 
-1. **Java 21 o superior** (OpenJDK u Oracle).
-2. **Librería org.json**  
-   Descarga el archivo `json-20240303.jar` y colócalo en la carpeta `lib/`.
-
----
-
-## Compilación
-
-Desde el directorio `src`, ejecuta:
-
-```sh
-javac -cp .:../lib/json-20240303.jar -d out FeedReaderMain.java feed/*.java namedEntity/*.java namedEntity/heuristic/*.java parser/*.java su
-bscription/*.java namedEntity/topic/*.java
-```
+**instrucciones de ejecución:**
+Para imprimir los articulos sin las named entities  escribir **make run** en consola sobre la carpeta raiz del proyecto
+Para imprimir el tituló de los articulos con un conteo de las entidades nombradas reconocidas por la euristica rapida proporcionada por la catédra escribir **make run-ne** en consola sobre la carpeta raiz del proyecyo
 
 
----
-
-## Ejecución
-
-Desde el directorio `src`, ejecuta:
-
-```sh
-java -cp out:../lib/json-20240303.jar FeedReaderMain
-```
-
-Para ejecutar con el parámetro de entidades nombradas:
-
-```sh
-java -cp out:../lib/json-20240303.jar FeedReaderMain -ne
-```
-
----
+## Decisiones de diseño
+- Extendimos la clase de rss parser para que pueda procesar xml tipo atom por medio de la clase hija atomparser.
+- Los xml tipo atom maneja de una manera diferente la fecha por lo que tomamos la desición de devolver la fecha actual.
+- Para mayor eficiencia y escalabilidad, optamos por implementar funciones serializables en lugar de funciones paralelizables. Ademas de que es mas recomendada para objetos mas estructurados.
 
 
+## Conceptos importantes
 
-## Características de implementación
+1. **Flujo de la aplicación**  
+La aplicación FeedReader sigue un flujo estructurado para procesar los feeds RSS y extraer las entidades nombradas. 
+   1.  La aplicación comienza leyendo el archivo `subscriptions.json`, que contiene una lista de URLs de feeds RSS a procesar.
+   2. Luego, se crea un dataset de Spark a partir de las URLs leídas, lo que permite manejar grandes volúmenes de datos de manera eficiente y paralelizada.
+   3. **Parseo de feeds**: Una vez descargado el contenido, la tarea de parsear los feeds se paraleliza entre los workers y luego se junta toda esa información en el driver.
+   Según si el usuraio pidió named entities o no, se realiza un procesamiento diferente:
+      - Si no se solicitan named entities, simplemente se printean los artículos de cada feed.
+      - Si se solicitan named entities, se procede a paralelizar la extracción de los artículos y cómputos de las entidades nombradas. Finalmente, ese cómputo se lleva al driver, el cual imprime el resultado.
 
--  No implementamos el parseo de Reddit, por lo que el código sigue su ejecución en la lista de suscripciones.
--  En caso de que el parseo de la fecha no resulte correcto, se utiliza la fecha actual.
-- El proyecto se realizó en Java 21, porque Java 24 dio error de instalación.
--En caso de que alguno de los artículos no tenga alguno de los campos requeridos, el programa devuelve error y termina la ejecución.
-- Las Named Entities que reconoce están dispuestas de acuerdo a la heurística y mapeo proporcionado por la cátedra.
 
+2. **¿Por qué se decide usar Apache Spark para este proyecto?**  
+Decidimos utilizar Spark para este proyecto debido a su capacidad para manejar grandes volúmenes de datos de manera eficiente y paralelizada. Spark permite procesar datos distribuidos en clústeres o nodos, lo que mejora significativamente el rendimiento en comparación con enfoques tradicionales de procesamiento secuencial con grandes volumenes de datos, como en este caso que hay que parsear 25 urls. 
 
+3. **Liste las principales ventajas y desventajas que encontró al utilizar Spark. ¿Cómo se aplica el concepto de inversión de control en este laboratorio?**  
+Como ventaja es que debido a que existe una inversion de control en la que el programdor solamente llena ciertos campos destinados para tal fin, lo que hace que la cantidad de código que se debe escribir es mucho menor. 
+Sin embargo, esto puede ser tambien una desventaja al tener que descubrir exactamente qué función o método es útil para lo que se necesita.
+
+5. **¿Considera que Spark requiere que el codigo original tenga una integración tight vs loose coupling?**  
+Consideramos que tiene una integración loose coupling, ya que Spark no necesita saber la implementación interna de las funciones que se le pasan como parámetros. Esto se logra a partir de modularizar el código, permitiendo que las funciones puedan ser reemplazadas o modificadas sin afectar al resto del sistema. Este enfoque de diseño es beneficioso, porque facilita, además, la escalabilidad y paralilización del proyecto.
+
+6. **¿El uso de Spark afectó la estructura de su código original?**  
+En algunos aspectos se tuvo que adaptar el código original para que se integrara con Spark y los tipos de urls a parsear. Sin embargo, la estructura general del código se mantuvo coherente con el diseño original.
