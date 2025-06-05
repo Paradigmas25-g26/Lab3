@@ -15,7 +15,6 @@ import java.util.ArrayList;
 public class FeedReaderMain {
 
     private static List<SingleSubscription> subscriptionList = new ArrayList<>();
-    private static List<Feed> feeds = new ArrayList<>();
 
     private static void printHelp() {
         System.out.println("Please, call this program correctly: FeedReader [-ne]");
@@ -39,7 +38,6 @@ public class FeedReaderMain {
         }
         subscriptionList = s.getSubscriptionsList();
         List<String> urls = new ArrayList<>();
-        Feed feedDS = null;
 
         for (SingleSubscription singSub : subscriptionList) {
             for (int i = 0; i < singSub.getUlrParamsSize(); i++) {
